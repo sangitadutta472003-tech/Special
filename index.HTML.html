@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Be my Valentine ❤️</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(145deg, #ffe6f0 0%, #ffd9e8 100%);
+            font-family: 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden; 
+            position: relative;
+            touch-action: manipulation; /* improve mobile handling */
+        }
+
+        /* ---- falling hearts canvas (background layer) ---- */
+        #heartCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;  /* so buttons stay clickable */
+            z-index: 1;
+        }
+
+        /* ---- main card (foreground) ---- */
+        .valentine-card {
+            position: relative;
+            z-index: 10;
+            background: rgba(255, 245, 250, 0.8);
+            backdrop-filter: blur(6px);
+            border-radius: 48px 48px 32px 32px;
+            padding: 2rem 3rem 2.8rem;
+            box-shadow: 0 25px 40px rgba(255, 80, 140, 0.3), 0 0 0 2px #fff8 inset, 0 0 0 5px #ffb6c1 inset;
+            text-align: center;
+            max-width: 600px;
+            width: 90%;
+            border: 3px solid white;
+            transition: transform 0.2s ease;
+        }
+
+        h1 {
+            font-size: 2.4rem;
+            font-weight: 600;
+            color: #d43f6b;
+            text-shadow: 2px 2px 0 #ffdee6;
+            letter-spacing: 1px;
+            margin-bottom: 2.2rem;
+            word-break: break-word;
+        }
+
+        .button-pair {
+            display: flex;
+            gap: 2rem;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            margin: 1.5rem 0 0.8rem;
+        }
+
+        .btn {
+            font-size: 2.2rem;
+            font-weight: bold;
+            padding: 0.8rem 2.6rem;
+            border: none;
+            border-radius: 60px;
+            background: white;
+            box-shadow: 0 12px 0 #b3476b, 0 6px 18px rgba(180, 60, 110, 0.4);
+            color: #b13e63;
+            cursor: pointer;
+            transition: all 0.08s linear;
+            letter-spacing: 1.5px;
+            border: 2px solid #ffc1cc;
+            transform: translateY(0);
+            min-width: 140px;
+            position: relative;
+            touch-action: none; /* helps with quick moves */
+        }
+
+        /* Yes button special style */
+        .btn-yes {
+            background: #ffebf0;
+            color: #c1295e;
+            box-shadow: 0 12px 0 #b34b6e, 0 6px 18px #f598b2;
+        }
+
+        /* No button stays still but we'll move it with JS */
+        .btn-no {
+            background: #ffeef2;
+            color: #a1355a;
+            box-shadow: 0 12px 0 #9f4763, 0 6px 18px #e7a2b9;
+        }
+
+        /* mobile / tap adjustments */
+        @media (max-width: 550px) {
+            .valentine-card { padding: 1.8rem 1rem 2rem; }
+            h1 { font-size: 1.8rem; }
+            .btn { font-size: 1.8rem; padding: 0.6rem 1.2rem; min-width: 120px; }
+        }
+
+        /* fake second page – hidden until yes click */
+        .hidden-page {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #c0003c;  /* deep red love */
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            flex-direction: column;
+            color: white;
+            font-size: 2rem;
+            padding: 1.5rem;
+            box-sizing: border-box;
+            overflow-y: auto;
+            font-weight: 600;
+            text-shadow: 3px 3px 0 #59001e;
+            animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .hidden-page.show-page {
+            display: flex;
+        }
+
+        .hidden-page p {
+            max-width: 800px;
+            line-height: 1.5;
+            background: rgba(255,255,240,0.2);
+            padding: 2rem 3rem;
+            border-radius: 80px 20px 80px 20px;
+            backdrop-filter: blur(3px);
+            border: 4px solid #ffdce6;
+            font-size: 2.2rem;
+        }
+
+        .hidden-page span {
+            font-size: 3rem;
+            filter: drop-shadow(0 4px 2px rgba(0,0,0,0.3));
+            display: inline-block;
+        }
+
+        .heart-big {
+            font-size: 5rem;
+            line-height: 1.2;
+            animation: heartbeat 1.2s infinite;
+        }
+
+        @keyframes heartbeat {
+            0% { transform: scale(1); }
+            30% { transform: scale(1.25); }
+            50% { transform: scale(1.1); }
+            70% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.7); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* extra hearts on new page */
+        .floating-hearts {
+            font-size: 3.5rem;
+            margin-top: 1rem;
+            letter-spacing: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Falling hearts canvas (background animation) -->
+    <canvas id="heartCanvas"></canvas>
+
+    <!-- Main proposal card -->
+    <div class="valentine-card" id="proposalCard">
+        <h1>💗 Will you be my Valentine? 💗</h1>
+        <div class="button-pair">
+            <button class="btn btn-yes" id="yesBtn">YES</button>
+            <button class="btn btn-no" id="noBtn">NO</button>
+        </div>
+        <!-- tiny sweet text -->
+        <div style="margin-top: 30px; font-size: 1.4rem; color: #b34b6e;">❤️  hesitate? the NO runs away  ❤️</div>
+    </div>
+
+    <!-- Second page (shown after YES click) red bg with message -->
+    <div id="lovePage" class="hidden-page">
+        <div>
+            <div class="heart-big">❤️🧡💛</div>
+            <p>
+                💋 I knew u wil say yes, yaaaa! 💋<br>
+                Love you today and always, my Valentine.<br>
+                <span style="font-size:2.8rem;">💖 hope to see you soon baby 💖</span>
+            </p>
+            <div class="floating-hearts">❤️ 💕 💓 💗 💞</div>
+            <div style="margin-top: 2.2rem; font-size: 1.8rem;">— forever yours —</div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ---------- Falling hearts via canvas ----------
+            const canvas = document.getElementById('heartCanvas');
+            const ctx = canvas.getContext('2d');
+            let width, height;
+            let hearts = [];
+
+            function initCanvas() {
+                width = window.innerWidth;
+                height = window.innerHeight;
+                canvas.width = width;
+                canvas.height = height;
+                
+                // create a bunch of hearts
+                const heartCount = 45;
+                hearts = [];
+                for (let i = 0; i < heartCount; i++) {
+                    hearts.push({
+                        x: Math.random() * width,
+                        y: Math.random() * height - height, // start above screen
+                        size: 12 + Math.floor(Math.random() * 25),  // 12~36px
+                        speed: 2 + Math.random() * 4,
+                        opacity: 0.5 + Math.random() * 0.5,
+                        swing: Math.random() * 6 - 3,  // horizontal drift
+                        phase: Math.random() * 2 * Math.PI,
+                    });
+                }
+            }
+
+            // draw a heart at (x, y) with given size and color
+            function drawHeart(x, y, size, opacity) {
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.scale(size / 24, size / 24);  // base heart ~24px
+                ctx.beginPath();
+                // classic heart curve
+                for (let t = 0; t <= 2 * Math.PI; t += 0.1) {
+                    const xPos = 16 * Math.pow(Math.sin(t), 3);
+                    const yPos = -(13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t));
+                    if (t === 0) ctx.moveTo(xPos, yPos);
+                    else ctx.lineTo(xPos, yPos);
+                }
+                ctx.closePath();
+                ctx.fillStyle = `rgba(235, 60, 120, ${opacity})`;  // rich pink/red
+                ctx.shadowColor = '#ff99bb';
+                ctx.shadowBlur = 12;
+                ctx.fill();
+                ctx.restore();
+            }
+
+            function updateHearts() {
+                ctx.clearRect(0, 0, width, height);
+                for (let h of hearts) {
+                    // move down
+                    h.y += h.speed;
+                    // add a little horizontal swing
+                    h.x += Math.sin(Date.now() * 0.002 + h.phase) * 0.2;
+
+                    // reset if off screen
+                    if (h.y > height + 50) {
+                        h.y = -50;
+                        h.x = Math.random() * width;
+                    }
+
+                    drawHeart(h.x, h.y, h.size, h.opacity);
+                }
+                requestAnimationFrame(updateHearts);
+            }
+
+            window.addEventListener('resize', () => {
+                initCanvas();
+            });
+
+            initCanvas();
+            updateHearts();
+
+            // ---------- interactive button logic ----------
+            const yesBtn = document.getElementById('yesBtn');
+            const noBtn = document.getElementById('noBtn');
+            const lovePage = document.getElementById('lovePage');
+            const proposalCard = document.getElementById('proposalCard');
+
+            // make the NO button move away when hovered/touched
+            function moveNoButton() {
+                // get viewport and button dimensions
+                const btnRect = noBtn.getBoundingClientRect();
+                const padding = 20;
+                const maxX = window.innerWidth - btnRect.width - padding;
+                const maxY = window.innerHeight - btnRect.height - padding;
+                const minX = padding;
+                const minY = padding;
+
+                // generate random new position, but keep fully inside viewport
+                let newX = Math.random() * (maxX - minX) + minX;
+                let newY = Math.random() * (maxY - minY) + minY;
+
+                // but also ensure it's not exactly under the cursor (optional)
+                // apply position
+                noBtn.style.position = 'fixed';  // so it can move anywhere
+                noBtn.style.left = newX + 'px';
+                noBtn.style.top = newY + 'px';
+                noBtn.style.zIndex = '50'; // above card but below new page
+                // make sure card doesn't clip it
+                proposalCard.style.pointerEvents = 'auto'; 
+            }
+
+            // event listeners for moving the NO button — many triggers so it's really hard to click
+            const moveEvents = ['mouseenter', 'touchstart', 'mousemove', 'click'];
+            moveEvents.forEach(ev => {
+                noBtn.addEventListener(ev, (e) => {
+                    e.preventDefault();  // avoid any accidental click through
+                    moveNoButton();
+                });
+            });
+
+            // additionally move on window resize to keep relative?
+            window.addEventListener('resize', () => {
+                if (noBtn.style.position === 'fixed') {
+                    // readjust to keep inside
+                    moveNoButton();
+                }
+            });
+
+            // also move as soon as page loads a bit to make it fun
+            setTimeout(() => {
+                if (Math.random() > 0.5) moveNoButton();
+            }, 200);
+
+            // YES button click : show the red love page
+            yesBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                // hide main card (optional, but we want to show full page)
+                proposalCard.style.display = 'none';  
+                // show love page
+                lovePage.classList.add('show-page');
+                // also hide the moving no button (so it doesn't float over)
+                noBtn.style.display = 'none';
+                yesBtn.style.display = 'none';
+            });
+
+            // in case someone actually manages to click NO? we also move then, but also show message? NO should not succeed, but if they catch it?
+            noBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // Even if click happens, we move and give no success.
+                moveNoButton();
+                // optionally tiny alert – but that would be mean. Instead just move again
+            });
+
+            // For mobile, we also need to prevent accidental scrolling while touching no
+            noBtn.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                moveNoButton();
+            });
+
+            // make entire card non-capturing for no button's new absolute positioning
+            document.body.addEventListener('touchstart', (e) => {
+                // if touch on noBtn, we already move; but avoid any page zoom interfering
+            }, { passive: false });
+
+            // Finally, ensure the YES button stays normal and does not move.
+            // But we add a little extra love: when YES clicked, we also stop canvas? not needed.
+
+            // one more thing: if the new page appears, we can optionally stop hearts? but it's fine behind.
+            // add extra floating hearts on second page via CSS
+
+            // And make the "NO" never stay under the mouse after quick movements
+            document.addEventListener('mousemove', (e) => {
+                // optional: if mouse gets very close to no button, move it preemptively
+                if (!noBtn || noBtn.style.display === 'none') return;
+                const rect = noBtn.getBoundingClientRect();
+                const distX = Math.abs(e.clientX - (rect.left + rect.width/2));
+                const distY = Math.abs(e.clientY - (rect.top + rect.height/2));
+                // if within 80px, move away (extra annoying / cute)
+                if (distX < 80 && distY < 80) {
+                    moveNoButton();
+                }
+            });
+
+            // also if someone tries to tap on NO on mobile, we move before click fires.
+            noBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                moveNoButton();
+            }, { passive: false });
+        })();
+    </script>
+</body>
+</html>
